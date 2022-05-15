@@ -15,6 +15,7 @@ email: "pierre.bauvin.imag@gmail.com"
 highlight_name: true
 interests:
 - Machine Learning for prediction
+- Prediction models testing metrics
 - AI for health
 - Causal inference
 - Data valuation
