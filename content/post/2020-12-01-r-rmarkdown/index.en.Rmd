@@ -1,20 +1,20 @@
 ---
-title: "Hello R Markdown"
-author: "Frida Gomam"
-date: 2020-12-01T21:13:14-05:00
-categories: ["R"]
-tags: ["R Markdown", "plot", "regression"]
+title: "What is (not) a prediction model"
+author: "Pierre Bauvin"
+date: '2022-05-26'
+categories: ["Prediction"]
+tags: ["Prediction model", "Data science", "regression"]
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(collapse = TRUE)
+# Other idea: comparison of mixed model and XGboost
 ```
 
-# R Markdown
+# In brief
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Lots of model out there are selling themselves as "machine learning/AI individual prediction model". Many are not. A good prediction model ought to  
 
-You can embed an R code chunk like this:
 
 ```{r cars}
 summary(cars) 
