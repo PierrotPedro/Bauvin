@@ -170,3 +170,24 @@ for (i in vector_of_skills) {
                           ignore.case = TRUE)
 }
 
+require(ggplot2)
+require(dplyr)
+require(tidyr)
+
+final_df <- read.csv2("./temp/final_df.csv") ; final_df <- final_df[,-1]
+final_df$Cloud <- final_df$AWS | final_df$GCP | final_df$Azure | final_df$BigQuery
+data_to_plot <- final_df[,19:40] %>% 
+    pivot_longer(everything()) %>%
+    filter(value) %>%
+    group_by(name) %>%
+    summarise(count = n()) %>% 
+    mutate(Freq = count / nrow(final_df)) %>%
+    arrange(name, desc(Freq))
+# data_to_plot <- data.frame(Freq=as.numeric(colMeans(final_df[,19:39])),
+#                            names=names(colMeans(final_df[,19:39])))
+data_to_plot$name <- factor(data_to_plot$name, 
+                             levels = data_to_plot$name[order(data_to_plot$Freq)])
+
+
+ggplot(data_to_plot, aes(x=Freq, y=name)) +
+    geom_bar(stat = "identity")
