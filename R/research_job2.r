@@ -1,8 +1,3 @@
-# General
-library(tidyverse)
-# Webscraping 
-library(rvest)
-library(RSelenium)
 library(seleniumPipes)
 # Geo data
 library(tidygeocoder)
@@ -20,7 +15,8 @@ source('R/research_job_fct.R')
 
 # ----- Test, 1 page -----
 
-url = "https://fr.indeed.com/jobs?q=data%20scientist&l=France&from=searchOnHP"
+
+url = "https://www.welcometothejungle.com/fr/companies/homeexchange/jobs/data-scientist_paris?q=0be901c5d3037b09713d978f433aa29d&o=1388993"
 # Headless Firefox browser
 exCap <- list("moz:firefoxOptions" = list(args = list('--headless')))
 rD <- rsDriver(browser = "firefox", extraCapabilities = exCap, port=1111L,
@@ -33,19 +29,18 @@ remDr$navigate(url)
 # Store page source 
 web_page <- remDr$getPageSource(header = TRUE)[[1]] %>% read_html()
 
-web_page %>%
-    html_element(css = "div.jobsearch-JobCountAndSortPane-jobCount") %>% # selecting with css 
-    html_text2() %>% # Transform to text
-    str_remove_all("[^0-9.-]") %>% # Clean the data to only get numbers
-    substr(start = 2, stop = 8) %>% 
-    as.numeric()
+job_descriptions<- web_page %>%
+    html_elements(css = ".sc-12bzhsi-17") %>%
+    html_text2()
 
 
-# ------ All pages ------
+
+# ---- All pages ----
+
 
 # Creating URL link corresponding to the first 40 pages
-base_url = "https://fr.indeed.com/jobs?q=data%20scientist&l=France&start="
-url_list <- c(url, paste0(base_url, as.character(seq(from=10, to=400, by=10))))
+base_url = "https://www.welcometothejungle.com/fr/jobs?query=data+scientist&attributesToRetrieve%5B0%5D=_geoloc&attributesToRetrieve%5B1%5D=contract_type&attributesToRetrieve%5B2%5D=experience_level_minimum&attributesToRetrieve%5B3%5D=name&attributesToRetrieve%5B4%5D=objectID&attributesToRetrieve%5B5%5D=office&attributesToRetrieve%5B6%5D=offices&attributesToRetrieve%5B7%5D=organization.logo.url&attributesToRetrieve%5B8%5D=organization.name&attributesToRetrieve%5B9%5D=organization.reference&attributesToRetrieve%5B10%5D=organization.slug&attributesToRetrieve%5B11%5D=organization.website_organization&attributesToRetrieve%5B12%5D=organization.descriptions&attributesToRetrieve%5B13%5D=organization.has_default_job&attributesToRetrieve%5B14%5D=promoted&attributesToRetrieve%5B15%5D=published_at&attributesToRetrieve%5B16%5D=reference&attributesToRetrieve%5B17%5D=remote&attributesToRetrieve%5B18%5D=slug&attributesToRetrieve%5B19%5D=website&attributesToRetrieve%5B20%5D=contract_type_names.fr&attributesToRetrieve%5B21%5D=organization.cover_image.fr.small.url&attributesToRetrieve%5B22%5D=organization.size.fr&attributesToRetrieve%5B23%5D=profession.category.fr&attributesToRetrieve%5B24%5D=profession.name.fr&attributesToRetrieve%5B25%5D=sectors_name.fr&refinementList%5Bcontract_type_names.fr%5D%5B%5D=CDI&page=1"
+url_list <- c(url, paste0(base_url, as.character(seq(from=1, to=400, by=10))))
 
 
 # Looping through the URL list
@@ -146,50 +141,3 @@ final_df <- cbind(final_df, job_descriptions)
 # Homogenize with custom function
 final_df$Description_c <- lapply(final_df$Description, function(x){clean_job_desc(x)[[2]]})
 final_df$Language <- textcat::textcat(final_df$Description)
-
-
-vector_of_skills <- c("Python", "Jupyter Notebook", " R,", " SAS",
-                      "Tensorflow", "Pytorch", 
-                      "AWS", "GCP", "Azure", "BigQuery",
-                      "SQL", "NoSQL", "Oracle", "Hadoop",
-                      "Power BI", "Tableau", "D3js",
-                      " Git", "Kaggle", "Java", "Excel", "Docker")
-list_of_skills <- as.list(vector_of_skills) ; names(list_of_skills) <- vector_of_skills
-list_of_skills[["Python"]] <- c(list_of_skills[["Python"]], "numpy", "pandas", "sklearn", "scipy", "Scikit")
-list_of_skills[["Tensorflow"]] <- c(list_of_skills[["Tensorflow"]], "Keras")
-list_of_skills[["AWS"]] <- c(list_of_skills[["AWS"]], "Amazon Web", "Redshift", "EC2")
-list_of_skills[["GCP"]] <- c(list_of_skills[["GCP"]], "Google Cloud")
-list_of_skills[["Azure"]] <- c(list_of_skills[["Azure"]], "DocumentDB")
-list_of_skills[[" R,"]] <- c(list_of_skills[[" R,"]], " R\\.", " R ", " R;", " R ;")
-list_of_skills[["Hadoop"]] <- c(list_of_skills[["Hadoop"]], "MapReduce", " Hive", "Spark")
-list_of_skills[["D3js"]] <- c(list_of_skills[["D3js"]], "D3\\.js")
-for (i in vector_of_skills) {
-    final_df[,i] <- NA
-    final_df[,i] <- grepl(paste(list_of_skills[[i]], collapse = "|"), 
-                          final_df$Description, 
-                          ignore.case = TRUE)
-}
-
-require(ggplot2)
-require(dplyr)
-require(tidyr)
-
-final_df <- read.csv2("./temp/final_df.csv") ; final_df <- final_df[,-1]
-final_df$Cloud <- final_df$AWS | final_df$GCP | final_df$Azure | final_df$BigQuery
-final_df$DataScience <- FALSE
-final_df$DataScience[grep("data scien", final_df$Job_title_c, ignore.case = TRUE)] <- TRUE
-data_to_plot <- final_df[,19:41] %>% 
-    pivot_longer(1:22) %>%
-    filter(value) %>%
-    group_by(name,DataScience ) %>%
-    summarise(count = n()) %>% 
-    mutate(Freq = count / nrow(final_df)) %>%
-    arrange(name, desc(Freq))
-
-# Ordering factors
-data_to_plot_DataScience <- data_to_plot[which(data_to_plot$DataScience),]
-data_to_plot$name <- factor(data_to_plot$name,
-            levels = data_to_plot_DataScience$name[order(data_to_plot_DataScience$Freq)])
-
-ggplot(data_to_plot, aes(x=Freq, y=name, fill=DataScience)) +
-    geom_bar(stat = "identity", position = "dodge")
