@@ -27,7 +27,7 @@ require(xgboost)
 require(pROC)
 require(ggplot2)
 # require(bbplot)
-
+require(dplyr)
 
 
 ```
@@ -36,7 +36,7 @@ require(ggplot2)
 
 A very good prediction model may be useless, or even worse! When trying to evaluate the effect of an action, such as the counterfactual intervention, a prediction model with very good performances can be misleading.
 
-This issue arises from the "fundamental problem of Data Science": to explain or to predict? This distinction has been described by @pearlwhy as weel as by @hernan2019second: description, prediction, or causal inference. Data Science is a powerful tool to test causal hypotheses using models & data, or to predict the outcome of new observations with smallest error possible. But both goals may be contradictory: explanatory analysis aims at minimizing the bias term, in the bias-variance decomposition of the error (@shmueli2010explain): 
+This issue arises from the "fundamental problem of Data Science": to explain or to predict? This distinction has been described by @pearlwhy as well as by @hernan2019second: description, prediction, or causal inference. Data Science is a powerful tool to test causal hypotheses using models & data, or to predict the outcome of new observations with smallest error possible. But both goals may be contradictory: explanatory analysis aims at minimizing the bias term, in the bias-variance decomposition of the error (@shmueli2010explain): 
 
 $$
 Mean\ Squared\ Error = E[(y_{observed} - f(x_{observed}))^2] = 
@@ -66,7 +66,7 @@ Blossoming, the young pancake start-up ("Pancup") decided to use Data Science to
 
 We are using the following DAG to represent that process. 
 
-```{r}
+```{r dag1, fig.cap="Some pancakes and one DAG"}
 
 # http://www.dagitty.net/dags.html#
 
@@ -80,13 +80,14 @@ We are using the following DAG to represent that process.
 # "Young age" -> "App usage"
 # }
 
+# knitr::include_graphics("/post/2022-13-11-prediction-vs-causality/ImageDAG.png", error = FALSE)
 
 ```
 
 ![](/post/2022-13-11-prediction-vs-causality/ImageDAG.png)
 
 
-"App usage" represents how much the individuals are using the pancake app. In that simulation, there is no causal link between age and liking pancakes (everybody loves them!), but more importantly, **age doesn't impact the probability of being a loyal customer**.
+"App usage" represents how much the individuals are using the pancake app. In that simulation, there is no causal link between age and liking pancakes (everybody loves them!), but more importantly, **age doesn't impact the probability of being a loyal customer**. Age only impacts app usage, as younger individuals are more easily reached on social networks.
 
 We are simulating the corresponding data with simple gaussian distributions (for age, errors, etc.) and sampling with the following probabilities:
 
@@ -99,7 +100,7 @@ $$
 $$
 P(Being\ loyal\ customer | \overline{Love\ pancakes})=0.10
 $$
-Finally, the app usage is a score determined by age and being a loyal customer or not, plus gaussian noise:
+Finally, the app usage is an (arbitrary) score determined by age and being a loyal customer or not, plus gaussian noise:
 
 $$
 App\ usage= 0.5*age\ +\ \mathbb{1}_{Being loyal customer} + \epsilon
@@ -132,14 +133,14 @@ data_simulated <- data.frame(client=client,
 
 The next step is to build a fancy prediction model to predict who are the loyal customers. To do so, we are going to use prediction algorithms on the simulated data, forgetting about the DAG and the process that generated the data.
 
-We use several algorithms, from simple logistic regression, to random forest and XGBoost, to predict the chance of being a loyal customer. The figure below ( \@ref(fig:first-prediction-model-estimation)) displays the results, using the "AUC" values, that is a simple discrimination metric (corresponding to the probability that the model will score a randomly chosen positive class higher than a randomly chosen negative class).
+We use several algorithms, from simple logistic regression, to random forest and XGBoost, to predict the chance of being a loyal customer. We use all available data: pancake enthusiasm, age, and app usage. The figure below ( \@ref(fig:first-prediction-model-estimation)) displays the results, using the "AUC" values, that is a simple discrimination metric (corresponding to the probability that the model will score a randomly chosen positive class higher than a randomly chosen negative class).
 
 
-```{r first-prediction-model-estimation, fig.cap='Prediction algorithms', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+```{r first-prediction-model-estimation, fig.cap='Performances to predict being a customer', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
 
-# summary(glm(client ~ ., data=data_simulated, family=binomial))
+model_lm_simple <- glm(client ~ ., data=data_simulated, family=binomial)
 
-# summary(glm(client ~ . + age:app_usage, data=data_simulated, family=binomial))
+# model_lm_inter <- glm(client ~ . + age:app_usage, data=data_simulated, family=binomial)
 
 train_obs <- sample(nrow(data_simulated), round(20*nrow(data_simulated)/100))
 x_train <- data_simulated[train_obs, -which(colnames(data_simulated) == "client")]
@@ -174,7 +175,7 @@ for (i in 1:length(learner_libraries)) {
 }
 df_auc$modele <- factor(df_auc$modele, 
                         levels = rev(names(learner_libraries)))
-ggplot(df_auc, aes(modele, auc_estimate, col=modele)) +
+ggplot(df_auc, aes(modele, auc_estimate)) +
     geom_point(size=4) +
     geom_errorbar(aes(ymin=auc_low, ymax=auc_upp), width=0.2) + 
     coord_flip() +
@@ -184,6 +185,7 @@ ggplot(df_auc, aes(modele, auc_estimate, col=modele)) +
 
 
 ```
+\
 
 In our settings, we see that:
 
@@ -193,10 +195,10 @@ In our settings, we see that:
 
 Okay, let's use our models to answer the question: who should we target in future marketing campaigns, who could be more likely to be a customer of the company?
 
-Below you can see the predicted risk of being a customer, depending on the two workable variables, age and liking of pancake, for each of the (interesting) model:
+On figure \@ref(fig:first-prediction-model-predictions) we see the predicted risk of being a customer, depending on the two workable variables, age and liking of pancake, for each of the (interesting) model. 
 
 
-```{r first-prediction-model-predictions, fig.cap='Prediction algorithms', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+```{r first-prediction-model-predictions, fig.cap='Predicted risks of being a customer', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
 
 data_age_pancake <- expand.grid(c(TRUE, FALSE), seq(18,80,by=0.1))
 colnames(data_age_pancake) <- c("liking_pancake", "age")
@@ -233,33 +235,251 @@ pred_reshaped <- pred_reshaped %>%
 pred_reshaped$modele <- factor(pred_reshaped$modele, 
                         levels = names(learner_libraries)[-1])
 ggplot(pred_reshaped, aes(x = age, y = liking_pancake, fill = Risk)) +
-  geom_tile() +
-  facet_wrap(~ modele) +
-  labs(x="Age", y="Like pancake") +
-  theme_bw() 
+    geom_tile() +
+    # scale_fill_gradient( trans = 'log' ) +
+    facet_wrap(~ modele) +
+    labs(x="Age", y="Like pancake") +
+    # scale_fill_gradient2(low = "#67001f", mid="#f7f7f7", high = "#053061", midpoint = 0.4) +
+    theme_bw() 
 
 ```
 
 
-# Even with a perfect prediction model
+\
 
-# A more subtle collider bias
+All of the model are in agreement: individuals who like pancakes have a higher risk of being customers, and **individuals with a younger age are also found to have with higer risk of being customers**, independently of if they like pancakes or not. For example, using the easily interpretable linear model, being 10 years younger increases the odd of being a customer by a factor of `r round(exp(-model_lm_simple$coefficients["age"]), 1)` (`r paste0(round(exp(-confint(model_lm_simple)["age",2:1]),1), collapse = "-")`). This result is in contradiction with the reality, with the way we generated our data. Indeed, age doesn't impact the risk of being a customer, only pancake liking does.
 
-# Real life examples with COVID & collider bias
+As a consequence, when the company is designing its next marketing campaign, it risks targeting the young people. It means it will loose resources, focusing on a group that doesn't have higher probability of being their customer, and will do so, no matter how accurate the prediction model is.
 
-# Including Plots
+However, a Data Scientist aware of causal inference knows that this isn't a prediction task, but a causal one, that we are trying to identify levers of action. To do so, it is crucial to draw a DAG that summarizes how the data is collected. Using D-separation rules (see @hernan2022causal or @pearlwhy), we see that including "web app usage" in any model will create a spurious link between age and being a loyal customer.
 
-You can also embed plots. See Figure \@ref(fig:pie) for example:
+\
 
-```{r pie, fig.cap='A fancy pie chart.', tidy=FALSE}
-par(mar = c(0, 1, 0, 1))
-pie(
-  c(280, 60, 20),
-  c('Sky', 'Sunny side of pyramid', 'Shady side of pyramid'),
-  col = c('#0292D8', '#F7EA39', '#C4B632'),
-  init.angle = -50, border = NA
-)
+# A more subtle example: collider bias
+
+
+Let's move together to another area, for the next case study: public health. 
+
+<center>
+![](/post/2022-13-11-prediction-vs-causality/healthcare-money.png)
+[](https://floridapolitics.com/archives/460264-federal-approval-of-additional-1-1b-in-medicaid-funds-imminent-top-health-officials-say/)
+</center>
+
+
+Let's imagine that the government is ready to put a lot of money to adress the type 2 diabetes issue, and more specifically to  prevent the occurrence of type 2 diabetes. But on what to act on? Main known (causal) drivers of type 2 diabetes are genetics (non-instrumental), age (non-instrumental) and obesity (already sufficiently adressed, according to the government). Lets find a new interesting, workable feature that leads to type 2 diabetes, that we can act on!
+
+In this fictional scenario, type 2 diabetes is the consequence of age, bmi, genes, and that's all, so this new driver reseach is destined to find nothing. See figure for the transcription of these hypotheses.
+
+```{r DAG2, echo=FALSE, fig.cap="Simple DAG for diabetes", out.width = '100%'}
+
+# knitr::include_graphics("/post/2022-13-11-prediction-vs-causality/ImageDAG2.png", error = FALSE)
+
 ```
+
+![](/post/2022-13-11-prediction-vs-causality/ImageDAG2.png)
+
+
+However, the government doesn't know this, and has access to a lot of data. Thus, it hires a team of Data Scientist in this quest to find a new feature causing type 2 diabetes. In the government data set, from extensive interview of random individuals, there is data on whether one's mother has diabetes, or not, as well as, why not: one's number of opera visit during childhood. Both totally non-causal with respect to one's diabetes status. However, both are *statistically* related to one's diabetes status, as described by the DAG in Figure : mother's genes influence mother's diabetes status, as well as one's diabetes status (because it influences one's gene), but we don't have genetic data on the government database. Moreover, family income is causing both mother's diabetes (because it impacts mother's BMI) and number of opera visit during childhood, but we don't have access to childhood income either.
+
+```{r}
+
+# http://www.dagitty.net/dags.html
+
+# dag {
+# "Family income during childhood" [latent,pos="-0.100,-0.887"]
+# "Mother's diabetes" [pos="-0.032,-0.770"]
+# "Mother's genes" [latent,pos="0.032,-0.882"]
+# "Number of opera visit during childhood" [exposure,pos="-0.100,-0.568"]
+# Age [pos="0.082,-0.525"]
+# BMI [pos="-0.016,-0.519"]
+# Diabetes [outcome,pos="0.034,-0.578"]
+# Genes [latent,pos="0.033,-0.724"]
+# "Family income during childhood" -> "Mother's diabetes"
+# "Family income during childhood" -> "Number of opera visit during childhood"
+# "Mother's genes" -> "Mother's diabetes"
+# "Mother's genes" -> Genes
+# Age -> Diabetes
+# BMI -> Diabetes
+# Genes -> Diabetes
+# }
+
+
+
+# knitr::include_graphics("/post/2022-13-11-prediction-vs-causality/ImageDAG3.png", error = FALSE)
+
+```
+![](/post/2022-13-11-prediction-vs-causality/ImageDAG3.png)
+
+Similarly as before, data is generated following this last DAG, and we are going to perform predictions, to find if another features predict diabetes.
+
+```{r}
+
+# set.seed(25112022)
+# n <- 1000
+# childhood_income <- rnorm(n, mean=1500, sd=200)
+# mother_genes <- rnorm(n, mean=0, sd=1)
+# bmi <- 20 + rweibull(n=n, shape = 2, scale = 10)
+# age <- round(rweibull(n=n, shape = 3, scale = 50))
+# mother_diabetes <- 2*mother_genes + childhood_income/1500 + rnorm(n, mean=0, sd=1)
+# number_opera <- round(childhood_income/50 - 15 + rnorm(n, mean=1, sd=0.8))
+# genes <- (mother_genes + rnorm(n, mean=0, sd=1))/2
+# diabetes_score <- genes + bmi/25 + age/50 + rnorm(n, mean=0, sd=1)
+# diabetes <- diabetes_score >= 3
+# too debug
+
+
+set.seed(25112022)
+n <- 1000
+childhood_income <- rnorm(n, mean=0, sd=1)
+mother_genes  <- rnorm(n, mean=0, sd=1)
+bmi <- rnorm(n, mean=0, sd=1)
+age  <- rnorm(n, mean=0, sd=1)
+mother_diabetes <- 5*childhood_income + 2*mother_genes + rnorm(n, mean=0, sd=1)
+number_opera <- 2*childhood_income + rnorm(n, mean=0, sd=1)
+genes <- mother_genes + rnorm(n, mean=0, sd=1)
+diabetes_score <- genes + 2*bmi + 2*age + rnorm(n, mean=0, sd=1)
+diabetes <- diabetes_score >= 1
+
+# summary(glm(diabetes ~ bmi + age + number_opera, family="binomial"))
+
+
+data_simulated <- data.frame(diabetes=diabetes,
+                             childhood_income=childhood_income,
+                             bmi=bmi,
+                             age=age,
+                             mother_diabete=mother_diabetes,
+                             number_opera=number_opera)
+
+```
+
+
+Again, we build several models to predict the diabetes risk, using all available data: age, bmi, mother's diabetes status and number of opera visits during childhood. The results in terms of AUC are below: 
+
+```{r second-prediction-model-estimation, fig.cap='Performances of diabetes prediction', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+# model_lm_simple <- glm(client ~ ., data=data_simulated, family=binomial)
+
+# model_lm_inter <- glm(client ~ . + age:app_usage, data=data_simulated, family=binomial)
+
+train_obs <- sample(nrow(data_simulated), round(20*nrow(data_simulated)/100))
+x_train <- data_simulated[train_obs, -which(colnames(data_simulated) == "diabetes")]
+y_train <- as.numeric(data_simulated[train_obs, "diabetes"])
+x_test <- data_simulated[-train_obs, -which(colnames(data_simulated) == "diabetes")]
+y_test <- as.numeric(data_simulated[-train_obs, "diabetes"])
+
+learner_libraries <- list("Simple mean"="SL.mean", 
+                          "Simple linear"="SL.glm",
+                          "Linear with interaction"="SL.glm.interaction",
+                          "Linear with LASSO"="SL.glmnet",
+                          "Support-vector machine"="SL.svm",
+                          "Random forest" ="SL.randomForest",
+                          "XGboost"="SL.xgboost")
+sl_simplesplit <- SuperLearner(Y = y_train, X = x_train, family = binomial(),
+                        method = "method.AUC",
+                        SL.library = learner_libraries)
+
+pred <- predict(sl_simplesplit, x_test, 
+                onlySL = FALSE)$library.predict
+df_auc <- data.frame(modele=names(learner_libraries))
+df_auc$auc_estimate <- NA
+df_auc$auc_low <- NA
+df_auc$auc_upp <- NA
+for (i in 1:length(learner_libraries)) {
+    
+    auc <- ci.auc(y_test, pred[,i]) 
+    df_auc$auc_estimate[i] <- auc[2]
+    df_auc$auc_low[i] <- auc[1]
+    df_auc$auc_upp[i] <- auc[3]
+    
+}
+df_auc$modele <- factor(df_auc$modele, 
+                        levels = rev(names(learner_libraries)))
+ggplot(df_auc, aes(modele, auc_estimate)) +
+    geom_point(size=4) +
+    geom_errorbar(aes(ymin=auc_low, ymax=auc_upp), width=0.2) + 
+    coord_flip() +
+    labs(x="", y="AUC value", title = "AUC values of prediction") +
+    theme_bw() + 
+    theme(legend.position = "none")  
+
+
+```
+
+\
+
+Great, we have again excellent predicting models, such as the simple linear model. With it, we are able to predict diabetes with a discriminatory power (AUC) of 0.93, for the linear model!
+
+Let's look at the relationship between the only operational variable, and the predicted risk of diabetes, in the best model that we obtain, for a mean individual.
+
+
+```{r second-prediction-model-predictions, fig.cap='Predicted risks of diabetes', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+data_opera_diabetes <- expand.grid(mean(x_train$childhood_income),
+                                    mean(x_train$bmi),
+                                    mean(x_train$age),
+                                    mean(x_train$mother_diabete),
+                                    seq(0,20,by=1))
+colnames(data_opera_diabetes) <- c("childhood_income",
+                                "bmi",
+                                "age", 
+                                "mother_diabete",
+                                "number_opera")
+pred <- predict(sl_simplesplit, data_opera_diabetes, 
+                onlySL = FALSE)$library.predict
+pred <- cbind(pred, data_opera_diabetes)
+
+pred_reshaped <- reshape(pred, direction='long', 
+        varying=c("SL.glm_All",
+                  "SL.glm.interaction_All",
+                  "SL.glmnet_All",
+                  "SL.svm_All",
+                  "SL.randomForest_All",
+                  "SL.xgboost_All"), 
+        timevar='modele',
+        times=c("SL.glm",
+                "SL.glm.interaction",
+                "SL.glmnet",
+                "SL.svm",
+                "SL.randomForest",
+                "SL.xgboost"),
+        v.names=c("Risk"),
+        idvar=c("number_opera"))
+pred_reshaped <- pred_reshaped[which(pred_reshaped$modele == "SL.glm"),]
+pred_reshaped <- pred_reshaped %>%
+    mutate(modele = recode(modele, 
+                            "SL.glm"="Simple linear",
+                            "SL.glm.interaction"="Linear with interaction",
+                            "SL.glmnet"="Linear with LASSO",
+                            "SL.svm"="Support-vector machine",
+                            "SL.randomForest"="Random forest",
+                            "SL.xgboost"="XGboost"))
+pred_reshaped$modele <- factor(pred_reshaped$modele, 
+                        levels = names(learner_libraries)[-1])
+ggplot(pred_reshaped, aes(x = number_opera, y = Risk)) +
+    geom_line() +
+    # scale_fill_gradient( trans = 'log' ) +
+    facet_wrap(~ modele) +
+    labs(x="Number of opera visits during childhood", y="Diabetes risk") +
+    # scale_fill_gradient2(low = "#67001f", mid="#f7f7f7", high = "#053061", midpoint = 0.4) +
+    theme_bw() 
+
+```
+
+\
+
+Amazing; our awesome predicting model tells us that the diabetes risk decreases with the number of opera visits during childhood. From 35% diabetes risk for individuals who never had the chance to visit the opera during childhood, to less than 5% risk for lucky ones with more that 20 opera visits!
+
+The Data Science team reports to the government, that decides to found a national plan for Opera promotion for the youth, hoping to tackle the diabetes issue. Obviously, it isn't going to be a success.
+
+Whereas a Data Scientist who is aware of causal inference, who draws DAGs, reads Hernàn and Pearl, will identify the "M-bias" from the previous DAG. By including the "mother diabetes status" in a model, according to the D-separation rules, a path is open between the number of opera visits (or any marker of family income during childhood) and diabetes, as long as we can't include the "genes" variable (that are often not available).
+
+
+# Causal inference to the rescue!
+
+
+Of course, it doesn't prevent the use of machine learning. For example Double ML
+
+
 
 
 # References
