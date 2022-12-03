@@ -294,7 +294,7 @@ As a consequence, the last models provide valuable insight for customer targetin
 
 \
 
-It could seem a too obvious example, because the problematic models include a variable that is posterior to 
+It could seem a too obvious example, because the problematic models include a variable that is posterior to the outcome variable (app usage comes after the likeliness of being a customer). However, it does exist more subtle examples of the importance of causal inference, versus prediction methods, when evaluating the effect of an action.
 
 \
 
