@@ -45,7 +45,7 @@ $$
 Bias(f)^2 + Var(f) + \sigma^2
 $$
 
-Minimizing the bias term seeks to obtain the most accurate representation of the underlying theory. On the other hand, prediction modeling seeks to minimize the bias + variance, to achieve a tradeoff between underfitting and generalization.
+Minimizing the bias term seeks to obtain the most accurate representation of the underlying theory, often by using  interpretable, usually parametric, model . On the other hand, prediction modeling seeks to minimize the bias + variance, to achieve a tradeoff between underfitting and generalization.
 
 As a result, trying to "explain" from a prediction model may lead to wrong conclusions, as we'll show with some examples. 
 
@@ -135,18 +135,22 @@ The next step is to build a fancy prediction model to predict who are the loyal 
 
 We use several algorithms, from simple logistic regression, to random forest and XGBoost, to predict the chance of being a loyal customer. We use all available data: pancake enthusiasm, age, and app usage. The figure below ( \@ref(fig:first-prediction-model-estimation)) displays the results, using the "AUC" values, that is a simple discrimination metric (corresponding to the probability that the model will score a randomly chosen positive class higher than a randomly chosen negative class).
 
-
-```{r first-prediction-model-estimation, fig.cap='Performances to predict being a customer', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
-
-model_lm_simple <- glm(client ~ ., data=data_simulated, family=binomial)
-
-# model_lm_inter <- glm(client ~ . + age:app_usage, data=data_simulated, family=binomial)
+```{r}
 
 train_obs <- sample(nrow(data_simulated), round(20*nrow(data_simulated)/100))
 x_train <- data_simulated[train_obs, -which(colnames(data_simulated) == "client")]
 y_train <- as.numeric(data_simulated[train_obs, "client"])
 x_test <- data_simulated[-train_obs, -which(colnames(data_simulated) == "client")]
 y_test <- as.numeric(data_simulated[-train_obs, "client"])
+
+```
+
+
+```{r first-prediction-model-estimation, fig.cap='Performances to predict being a customer', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+model_lm_simple <- glm(client ~ age + liking_pancake, data=data_simulated, family=binomial)
+
+# model_lm_inter <- glm(client ~ . + age:app_usage, data=data_simulated, family=binomial)
 
 learner_libraries <- list("Simple mean"="SL.mean", 
                           "Simple linear"="SL.glm",
@@ -180,6 +184,7 @@ ggplot(df_auc, aes(modele, auc_estimate)) +
     geom_errorbar(aes(ymin=auc_low, ymax=auc_upp), width=0.2) + 
     coord_flip() +
     labs(x="", y="AUC value", title = "AUC values of prediction") +
+    scale_y_continuous(limits=c(0.5,1)) + 
     theme_bw() + 
     theme(legend.position = "none")  
 
@@ -203,6 +208,8 @@ On figure \@ref(fig:first-prediction-model-predictions) we see the predicted ris
 data_age_pancake <- expand.grid(c(TRUE, FALSE), seq(18,80,by=0.1))
 colnames(data_age_pancake) <- c("liking_pancake", "age")
 data_age_pancake$app_usage <- mean(x_train$app_usage)
+data_age_pancake <- data_age_pancake[,which(colnames(data_age_pancake) %in%
+                                                colnames(x_train))]
 pred <- predict(sl_simplesplit, data_age_pancake, 
                 onlySL = FALSE)$library.predict
 pred <- cbind(pred, data_age_pancake)
@@ -251,7 +258,43 @@ All of the model are in agreement: individuals who like pancakes have a higher r
 
 As a consequence, when the company is designing its next marketing campaign, it risks targeting the young people. It means it will loose resources, focusing on a group that doesn't have higher probability of being their customer, and will do so, no matter how accurate the prediction model is.
 
-However, a Data Scientist aware of causal inference knows that this isn't a prediction task, but a causal one, that we are trying to identify levers of action. To do so, it is crucial to draw a DAG that summarizes how the data is collected. Using D-separation rules (see @hernan2022causal or @pearlwhy), we see that including "web app usage" in any model will create a spurious link between age and being a loyal customer.
+However, a Data Scientist aware of causal inference knows that this isn't a prediction task, but a causal one, that we are trying to identify levers of action. To do so, it is crucial to draw a DAG that summarizes how the data is collected (such as the previous DAG). Using D-separation rules (see @hernan2022causal or @pearlwhy), we see that including "web app usage" in any model will create a spurious link between age and being a loyal customer.
+
+
+```{r}
+
+train_obs <- sample(nrow(data_simulated), round(20*nrow(data_simulated)/100))
+x_train <- data_simulated[train_obs, -which(colnames(data_simulated) %in% c("client",
+                                                                            "app_usage"))]
+y_train <- as.numeric(data_simulated[train_obs, "client"])
+x_test <- data_simulated[-train_obs, -which(colnames(data_simulated) == c("client",
+                                                                            "app_usage"))]
+y_test <- as.numeric(data_simulated[-train_obs, "client"])
+
+
+```
+
+Re-performing the previous analyses, without including the "app usage" variable in the train data, leads to lower performances of the predictive model, as expected.  
+
+```{r, ref.label=c('first-prediction-model-estimation'), fig.cap='Performances to predict being a customer, from DAG', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+```
+
+\
+
+However, with those models, individuals who like pancakes have a higher risk of being customers, and only them. **Age doesn't impact risk of being customers** anymore (or non-significantly so, for the Random Forest & XGBoost).
+
+```{r, ref.label=c('first-prediction-model-predictions'), fig.cap='Predicted risks of being a customer, from DAG', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+```
+
+\
+
+As a consequence, the last models provide valuable insight for customer targeting, despite lower performances, thanks to causal inference theory.  
+
+\
+
+It could seem a too obvious example, because the problematic models include a variable that is posterior to the outcome variable (app usage comes after the likeliness of being a customer). However, it does exist more subtle examples of the importance of causal inference, versus prediction methods, when evaluating the effect of an action.
 
 \
 
@@ -268,7 +311,7 @@ Let's move together to another area, for the next case study: public health.
 
 Let's imagine that the government is ready to put a lot of money to adress the type 2 diabetes issue, and more specifically to  prevent the occurrence of type 2 diabetes. But on what to act on? Main known (causal) drivers of type 2 diabetes are genetics (non-instrumental), age (non-instrumental) and obesity (already sufficiently adressed, according to the government). Lets find a new interesting, workable feature that leads to type 2 diabetes, that we can act on!
 
-In this fictional scenario, type 2 diabetes is the consequence of age, bmi, genes, and that's all, so this new driver reseach is destined to find nothing. See figure for the transcription of these hypotheses.
+In this fictional scenario, type 2 diabetes is the consequence of genes, age, BMI, and that's all, so this new driver reseach is destined to find nothing. See figure for the transcription of these hypotheses.
 
 ```{r DAG2, echo=FALSE, fig.cap="Simple DAG for diabetes", out.width = '100%'}
 
@@ -353,7 +396,7 @@ data_simulated <- data.frame(diabetes=diabetes,
 ```
 
 
-Again, we build several models to predict the diabetes risk, using all available data: age, bmi, mother's diabetes status and number of opera visits during childhood. The results in terms of AUC are below: 
+Again, we build several models to predict the diabetes risk, using all available data: age, bmi, mother's diabetes status and number of opera visits during childhood. On the contrary to the previous analysis, all variables are precede  the outcome. The results in terms of AUC are below: 
 
 ```{r second-prediction-model-estimation, fig.cap='Performances of diabetes prediction', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
 
@@ -398,6 +441,7 @@ ggplot(df_auc, aes(modele, auc_estimate)) +
     geom_point(size=4) +
     geom_errorbar(aes(ymin=auc_low, ymax=auc_upp), width=0.2) + 
     coord_flip() +
+    scale_y_continuous(limits=c(0.5,1)) + 
     labs(x="", y="AUC value", title = "AUC values of prediction") +
     theme_bw() + 
     theme(legend.position = "none")  
@@ -473,13 +517,16 @@ The Data Science team reports to the government, that decides to found a nationa
 
 Whereas a Data Scientist who is aware of causal inference, who draws DAGs, reads Hernàn and Pearl, will identify the "M-bias" from the previous DAG. By including the "mother diabetes status" in a model, according to the D-separation rules, a path is open between the number of opera visits (or any marker of family income during childhood) and diabetes, as long as we can't include the "genes" variable (that are often not available).
 
+The answer here is thus to remove the "mother diabetes status" from the analysis, leading to less accurate prediction models (because we loose the indirect informations regarding genes status of our individuals) but more accurate *causal model*, exactly what we want in our settings.
 
-# Causal inference to the rescue!
+\
+
+# Perspectives on causal inference & machine learning
 
 
-Of course, it doesn't prevent the use of machine learning. For example Double ML
+Of course, causal inference doesn't prevent the use of machine learning. It is mainly an injunction to reflect on the goal of the analysis, on the study design and the meaning of features.
 
-
+Actually, there are several causal methods using state-of-the-art machine learning algorithms to improve the accuracy of causal inference results. The Targeted Maximum Likelihood Estimation method (@vanderLaanRubin) and the Double/Debiased Machine Learning framework (@Chernozhukov) are two very good examples, aiming to estimate point treatment effects, using semi-parametric approach and machine learning algorithms of your choice to predict both of the nuisance parameters (the outcome, and the probability of treatment). Both algorithms are fascinating and are starting to see a widespread use, but their description will be in a future blogpost; see @IvanDiaz for a good first introduction.
 
 
 # References
