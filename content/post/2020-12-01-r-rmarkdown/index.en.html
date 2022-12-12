@@ -1,48 +1,137 @@
 ---
-title: "What is (not) a prediction model"
+title: "Prediction versus causality [1/2]"
 author: "Pierre Bauvin"
-date: '2022-05-26'
-categories: ["Prediction"]
-tags: ["Prediction model", "Data science", "regression"]
+date: '2022-11-15'
+categories: ["Prediction", "Causality"]
+tags: ["Prediction model", "Data science", "Causality", "DAG"]
+subtitle: 'How prediction may not be what you need'
+summary: 'A very good prediction model may be useless, or even worse!'
+header-includes:
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+bibliography: [../../../static/bib/My_bib.bib] 
+csl: [../../../static/bib/climate-dynamics.csl]
+output:
+  html_document:
+    code_folding: hide
 ---
 
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 
 <div id="in-brief" class="section level1">
 <h1>In brief</h1>
-<p>Lots of model out there are selling themselves as “machine learning/AI individual prediction model”. Many are not. A good prediction model ought to</p>
-<pre class="r"><code>summary(cars) 
-##      speed           dist       
-##  Min.   : 4.0   Min.   :  2.00  
-##  1st Qu.:12.0   1st Qu.: 26.00  
-##  Median :15.0   Median : 36.00  
-##  Mean   :15.4   Mean   : 42.98  
-##  3rd Qu.:19.0   3rd Qu.: 56.00  
-##  Max.   :25.0   Max.   :120.00
-fit &lt;- lm(dist ~ speed, data = cars)
-fit
-## 
-## Call:
-## lm(formula = dist ~ speed, data = cars)
-## 
-## Coefficients:
-## (Intercept)        speed  
-##     -17.579        3.932</code></pre>
-</div>
-<div id="including-plots" class="section level1">
-<h1>Including Plots</h1>
-<p>You can also embed plots. See Figure <a href="#fig:pie">1</a> for example:</p>
-<pre class="r"><code>par(mar = c(0, 1, 0, 1))
-pie(
-  c(280, 60, 20),
-  c(&#39;Sky&#39;, &#39;Sunny side of pyramid&#39;, &#39;Shady side of pyramid&#39;),
-  col = c(&#39;#0292D8&#39;, &#39;#F7EA39&#39;, &#39;#C4B632&#39;),
-  init.angle = -50, border = NA
-)</code></pre>
-<div class="figure"><span style="display:block;" id="fig:pie"></span>
-<img src="{{< blogdown/postref >}}index.en_files/figure-html/pie-1.png" alt="A fancy pie chart." width="672" />
-<p class="caption">
-Figure 1: A fancy pie chart.
+<p>A very good prediction model may be useless, or even worse! When trying to evaluate the effect of an action, such as the counterfactual intervention, a prediction model with very good performances can be misleading.</p>
+<p>This issue arises from the “fundamental problem of Data Science”: to explain or to predict? This distinction has been described by <span class="citation">Pearl and Mackenzie (<a href="#ref-pearlwhy" role="doc-biblioref">2018</a>)</span> as well as by <span class="citation">Hernán et al. (<a href="#ref-hernan2019second" role="doc-biblioref">2019</a>)</span>: description, prediction, or causal inference. Data Science is a powerful tool to test causal hypotheses using models &amp; data, or to predict the outcome of new observations with smallest error possible. But both goals may be contradictory: explanatory analysis aims at minimizing the bias term, in the bias-variance decomposition of the error (<span class="citation">Shmueli (<a href="#ref-shmueli2010explain" role="doc-biblioref">2010</a>)</span>):</p>
+<p><span class="math display">\[
+Mean\ Squared\ Error = E[(y_{observed} - f(x_{observed}))^2] =
+\]</span>
+<span class="math display">\[
+Bias(f)^2 + Var(f) + \sigma^2
+\]</span></p>
+<p>Minimizing the bias term seeks to obtain the most accurate representation of the underlying theory, often by using interpretable, usually parametric, model . On the other hand, prediction modeling seeks to minimize the bias + variance, to achieve a tradeoff between underfitting and generalization.</p>
+<p>As a result, trying to “explain” from a prediction model may lead to wrong conclusions, as we’ll show with some examples.</p>
+<p><br />
 </p>
+</div>
+<div id="a-first-simple-example" class="section level1">
+<h1>A first simple example</h1>
+<p>Once upon a time, there was a startup that sold pancakes.</p>
+<center>
+<img src="/post/2022-13-11-prediction-vs-causality/strawberry-pancakes-yum-flo-karp.jpg" />
+<a href="https://fineartamerica.com/featured/strawberry-pancakes-yum-flo-karp.html">Strawberry Pancakes Yum, by Flo Karp, 2018</a>
+</center>
+<p><br />
+</p>
+<p>Blossoming, the young pancake start-up (“Pancup”) decided to use Data Science to help target individuals that were the more likely to become loyal customers. They designed a the pancake app (“Pancapp”). They launched a global campaign to gather data, reaching out social media and usual customers, for them to use the app. The goal of the Pancup is to identify who is more likely to be a loyal customer of their company, for example to target future marketing campaigns.</p>
+<p>We are using the following DAG to represent that process.</p>
+<p><img src="/post/2022-13-11-prediction-vs-causality/ImageDAG.png" /></p>
+<p>“App usage” represents how much the individuals are using the pancake app. In that simulation, there is no causal link between age and liking pancakes (everybody loves them!), but more importantly, <strong>age doesn’t impact the probability of being a loyal customer</strong>. Age only impacts app usage, as younger individuals are more easily reached on social networks.</p>
+<p>We are simulating the corresponding data with simple gaussian distributions (for age, errors, etc.) and sampling with the following probabilities:</p>
+<p><span class="math display">\[
+P(Loving\ pancakes)=0.75
+\]</span>
+<span class="math display">\[
+P(Being\ loyal\ customer | Love\ pancakes)=0.80
+\]</span>
+<span class="math display">\[
+P(Being\ loyal\ customer | \overline{Love\ pancakes})=0.15
+\]</span>
+Finally, the app usage is an (arbitrary) score determined by age and being a loyal customer or not, plus gaussian noise:</p>
+<p><span class="math display">\[
+App\ usage= 0.5*age\ +\ \mathbb{1}_{Being loyal customer} + \epsilon
+\]</span></p>
+<p><span class="math display">\[
+\epsilon \sim Norm(0, \sigma^2)
+\]</span></p>
+<p>The next step is to build a fancy prediction model to predict who are the loyal customers. To do so, we are going to use prediction algorithms on the simulated data, forgetting about the DAG and the process that generated the data.</p>
+<p>We use several algorithms, from simple logistic regression, to random forest and XGBoost, to predict the chance of being a loyal customer. We use all available data: pancake enthusiasm, age, and app usage. The figure below ( <a href="#fig:first-prediction-model-estimation">1</a>) displays the results, using the “AUC” values, that is a simple discrimination metric (corresponding to the probability that the model will score a randomly chosen positive class higher than a randomly chosen negative class).</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:first-prediction-model-estimation"></span>
+<img src="{{< blogdown/postref >}}index.en_files/figure-html/first-prediction-model-estimation-1.png" alt="Performances to predict being a customer" width="672" />
+<p class="caption">
+Figure 1: Performances to predict being a customer
+</p>
+</div>
+<p><br />
+</p>
+<p>In our settings, we see that:</p>
+<ul>
+<li><p>The “simple mean” model, that uses the mean risk in the train data to predict the risk in the test data, scores similarly to a random classifier, as expected.</p></li>
+<li><p>The linear models (logistic regressions) score higher than the more advanced ones - no surprise here, the data-generation process is simple and linear. We note that, still, SVM, random forest and XGBoost hold their own.</p></li>
+</ul>
+<p>Okay, let’s use our models to answer the question: who should we target in future marketing campaigns, who could be more likely to be a customer of the company?</p>
+<p>On figure <a href="#fig:first-prediction-model-predictions">2</a> we see the predicted risk of being a customer, depending on the two workable variables, age and liking of pancake, for each of the (interesting) model.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:first-prediction-model-predictions"></span>
+<img src="{{< blogdown/postref >}}index.en_files/figure-html/first-prediction-model-predictions-1.png" alt="Predicted risks of being a customer" width="672" />
+<p class="caption">
+Figure 2: Predicted risks of being a customer
+</p>
+</div>
+<p><br />
+</p>
+<p>All of the model are in agreement: individuals who like pancakes have a higher risk of being customers, and <strong>individuals with a younger age are also found to have with higer risk of being customers</strong>, independently of if they like pancakes or not. For example, using the easily interpretable linear model, being 10 years younger increases the odd of being a customer by a factor of 1.57 (1.44-1.72). This result is in contradiction with the reality, with the way we generated our data. Indeed, age doesn’t impact the risk of being a customer, only pancake liking does.</p>
+<p>As a consequence, when the company is designing its next marketing campaign, it risks targeting the young people. It means it will loose resources, focusing on a group that doesn’t have higher probability of being their customer, and will do so, no matter how accurate the prediction model is.</p>
+<p>However, a Data Scientist aware of causal inference knows that this isn’t a prediction task, but a causal one, that we are trying to identify levers of action. To do so, it is crucial to draw a DAG that summarizes how the data is collected (such as the previous DAG). Using D-separation rules (see <span class="citation">Hernán and Robins (<a href="#ref-hernan2022causal" role="doc-biblioref">2022</a>)</span> or <span class="citation">Pearl and Mackenzie (<a href="#ref-pearlwhy" role="doc-biblioref">2018</a>)</span>), we see that including “web app usage” in any model will create a spurious link between age and being a loyal customer, as it is a collider of those two variables.</p>
+<p>Re-performing the previous analyses, without including the “app usage” variable in the train data, leads to lower performances of the predictive model, as expected.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:unnamed-chunk-4"></span>
+<img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-4-1.png" alt="Performances to predict being a customer, from DAG" width="672" />
+<p class="caption">
+Figure 3: Performances to predict being a customer, from DAG
+</p>
+</div>
+<p><br />
+</p>
+<p>However, with those models, individuals who like pancakes have a higher risk of being customers, and only them. <strong>Age doesn’t impact risk of being customers</strong> anymore (or non-significantly so, for the Random Forest &amp; XGBoost).</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:unnamed-chunk-5"></span>
+<img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-5-1.png" alt="Predicted risks of being a customer, from DAG" width="672" />
+<p class="caption">
+Figure 4: Predicted risks of being a customer, from DAG
+</p>
+</div>
+<p><br />
+</p>
+<p>As a consequence, the last models provide valuable insight for customer targeting, despite lower performances, thanks to causal inference theory.</p>
+<p><br />
+</p>
+<p>It could seem a too obvious example, because the problematic models include a variable that is posterior to the outcome variable (app usage comes after the likeliness of being a customer). However, it does exist more subtle examples of the importance of causal inference, versus prediction methods, when evaluating the effect of an action.</p>
+<p><br />
+</p>
+</div>
+<div id="references" class="section level1">
+<h1>References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-hernan2019second" class="csl-entry">
+Hernán MA, Hsu J, Healy B (2019) A second chance to get causal inference right: A classification of data science tasks. Chance 32:42–49
+</div>
+<div id="ref-hernan2022causal" class="csl-entry">
+Hernán M, Robins J (2022) Causal inference: What if. Published online 2020
+</div>
+<div id="ref-pearlwhy" class="csl-entry">
+Pearl J, Mackenzie D (2018) The book of why: The new science of cause and effect
+</div>
+<div id="ref-shmueli2010explain" class="csl-entry">
+Shmueli G (2010) To explain or to predict? Statistical science 25:289–310
+</div>
 </div>
 </div>

@@ -1,37 +1,306 @@
 ---
-title: "What is (not) a prediction model"
+title: "Prediction versus causality [1/2]"
 author: "Pierre Bauvin"
-date: '2022-05-26'
-categories: ["Prediction"]
-tags: ["Prediction model", "Data science", "regression"]
+date: '2022-11-15'
+categories: ["Prediction", "Causality"]
+tags: ["Prediction model", "Data science", "Causality", "DAG"]
+subtitle: 'How prediction may not be what you need'
+summary: 'A very good prediction model may be useless, or even worse!'
+header-includes:
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+bibliography: [../../../static/bib/My_bib.bib] 
+csl: [../../../static/bib/climate-dynamics.csl]
+output:
+  html_document:
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse = TRUE)
-# Other idea: comparison of mixed model and XGboost
+
+knitr::opts_chunk$set(collapse = FALSE, include=FALSE, 
+                      echo = FALSE, message = FALSE)
+
+require(SuperLearner)
+require(randomForest)
+require(xgboost)
+require(pROC)
+require(ggplot2)
+# require(bbplot)
+require(dplyr)
+
+
 ```
 
 # In brief
 
-Lots of model out there are selling themselves as "machine learning/AI individual prediction model". Many are not. A good prediction model ought to  
+A very good prediction model may be useless, or even worse! When trying to evaluate the effect of an action, such as the counterfactual intervention, a prediction model with very good performances can be misleading.
 
+This issue arises from the "fundamental problem of Data Science": to explain or to predict? This distinction has been described by @pearlwhy as well as by @hernan2019second: description, prediction, or causal inference. Data Science is a powerful tool to test causal hypotheses using models & data, or to predict the outcome of new observations with smallest error possible. But both goals may be contradictory: explanatory analysis aims at minimizing the bias term, in the bias-variance decomposition of the error (@shmueli2010explain): 
 
-```{r cars}
-summary(cars) 
-fit <- lm(dist ~ speed, data = cars)
-fit
+$$
+Mean\ Squared\ Error = E[(y_{observed} - f(x_{observed}))^2] = 
+$$
+$$
+Bias(f)^2 + Var(f) + \sigma^2
+$$
+
+Minimizing the bias term seeks to obtain the most accurate representation of the underlying theory, often by using  interpretable, usually parametric, model . On the other hand, prediction modeling seeks to minimize the bias + variance, to achieve a tradeoff between underfitting and generalization.
+
+As a result, trying to "explain" from a prediction model may lead to wrong conclusions, as we'll show with some examples. 
+
+\
+
+# A first simple example
+
+Once upon a time, there was a startup that sold pancakes. 
+
+<center>
+![](/post/2022-13-11-prediction-vs-causality/strawberry-pancakes-yum-flo-karp.jpg)
+[Strawberry Pancakes Yum, by Flo Karp, 2018](https://fineartamerica.com/featured/strawberry-pancakes-yum-flo-karp.html)
+</center>
+
+\
+
+Blossoming, the young pancake start-up ("Pancup") decided to use Data Science to help target individuals that were the more likely to become loyal customers. They designed a the pancake app ("Pancapp"). They launched a global campaign to gather data, reaching out social media and usual customers, for them to use the app. The goal of the Pancup is to identify who is more likely to be a loyal customer of their company, for example to target future marketing campaigns. 
+
+We are using the following DAG to represent that process. 
+
+```{r dag1, fig.cap="Some pancakes and one DAG"}
+
+# http://www.dagitty.net/dags.html#
+
+# dag {
+# "App usage" [pos="-0.356,0.515"]
+# "Love pancakes" [pos="-0.314,-0.493"]
+# "Loyal customer" [outcome,pos="0.334,0.058"]
+# "Young age" [exposure,pos="-1.061,0.053"]
+# "Love pancakes" -> "Loyal customer"
+# "Loyal customer" -> "App usage"
+# "Young age" -> "App usage"
+# }
+
+# knitr::include_graphics("/post/2022-13-11-prediction-vs-causality/ImageDAG.png", error = FALSE)
+
 ```
 
-# Including Plots
+![](/post/2022-13-11-prediction-vs-causality/ImageDAG.png)
 
-You can also embed plots. See Figure \@ref(fig:pie) for example:
 
-```{r pie, fig.cap='A fancy pie chart.', tidy=FALSE}
-par(mar = c(0, 1, 0, 1))
-pie(
-  c(280, 60, 20),
-  c('Sky', 'Sunny side of pyramid', 'Shady side of pyramid'),
-  col = c('#0292D8', '#F7EA39', '#C4B632'),
-  init.angle = -50, border = NA
-)
+"App usage" represents how much the individuals are using the pancake app. In that simulation, there is no causal link between age and liking pancakes (everybody loves them!), but more importantly, **age doesn't impact the probability of being a loyal customer**. Age only impacts app usage, as younger individuals are more easily reached on social networks.
+
+We are simulating the corresponding data with simple gaussian distributions (for age, errors, etc.) and sampling with the following probabilities:
+
+$$
+P(Loving\ pancakes)=0.75
+$$
+$$
+P(Being\ loyal\ customer | Love\ pancakes)=0.80
+$$
+$$
+P(Being\ loyal\ customer | \overline{Love\ pancakes})=0.15
+$$
+Finally, the app usage is an (arbitrary) score determined by age and being a loyal customer or not, plus gaussian noise:
+
+$$
+App\ usage= 0.5*age\ +\ \mathbb{1}_{Being loyal customer} + \epsilon
+$$
+
+$$
+\epsilon \sim Norm(0, \sigma^2) 
+$$
+
+
+```{r}
+
+set.seed(15112022)
+n <- 1000
+liking_pancake <- rbinom(n, 1, 0.75) == 1
+age <- rnorm(n, mean=40, sd=10)
+client <- rep(NA, n)
+client[which(liking_pancake)] <- rbinom(length(which(liking_pancake)), 1, 0.80) 
+client[which(!liking_pancake)] <- rbinom(length(which(!liking_pancake)), 1, 0.15)
+client <- client == 1
+app_usage <- 0.5*age + 1*client + rnorm(n)
+
+data_simulated <- data.frame(client=client,
+                             liking_pancake=liking_pancake,
+                             age=age,
+                             app_usage=app_usage)
+
 ```
+
+
+The next step is to build a fancy prediction model to predict who are the loyal customers. To do so, we are going to use prediction algorithms on the simulated data, forgetting about the DAG and the process that generated the data.
+
+We use several algorithms, from simple logistic regression, to random forest and XGBoost, to predict the chance of being a loyal customer. We use all available data: pancake enthusiasm, age, and app usage. The figure below ( \@ref(fig:first-prediction-model-estimation)) displays the results, using the "AUC" values, that is a simple discrimination metric (corresponding to the probability that the model will score a randomly chosen positive class higher than a randomly chosen negative class).
+
+```{r}
+
+train_obs <- sample(nrow(data_simulated), round(20*nrow(data_simulated)/100))
+x_train <- data_simulated[train_obs, -which(colnames(data_simulated) == "client")]
+y_train <- as.numeric(data_simulated[train_obs, "client"])
+x_test <- data_simulated[-train_obs, -which(colnames(data_simulated) == "client")]
+y_test <- as.numeric(data_simulated[-train_obs, "client"])
+
+```
+
+
+```{r first-prediction-model-estimation, fig.cap='Performances to predict being a customer', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+model_lm_simple <- glm(client ~ ., data=data_simulated, family=binomial)
+# model_lm_inter <- glm(client ~ . + age:app_usage, data=data_simulated, family=binomial)
+model_lm_true <- glm(client ~ age + liking_pancake, data=data_simulated, family=binomial)
+
+
+learner_libraries <- list("Simple mean"="SL.mean", 
+                          "Simple linear"="SL.glm",
+                          "Linear with interaction"="SL.glm.interaction",
+                          "Linear with LASSO"="SL.glmnet",
+                          "Support-vector machine"="SL.svm",
+                          "Random forest" ="SL.randomForest",
+                          "XGboost"="SL.xgboost")
+sl_simplesplit <- SuperLearner(Y = y_train, X = x_train, family = binomial(),
+                        method = "method.AUC",
+                        SL.library = learner_libraries)
+
+pred <- predict(sl_simplesplit, x_test, 
+                onlySL = FALSE)$library.predict
+df_auc <- data.frame(modele=names(learner_libraries))
+df_auc$auc_estimate <- NA
+df_auc$auc_low <- NA
+df_auc$auc_upp <- NA
+for (i in 1:length(learner_libraries)) {
+    
+    auc <- ci.auc(y_test, pred[,i]) 
+    df_auc$auc_estimate[i] <- auc[2]
+    df_auc$auc_low[i] <- auc[1]
+    df_auc$auc_upp[i] <- auc[3]
+    
+}
+df_auc$modele <- factor(df_auc$modele, 
+                        levels = rev(names(learner_libraries)))
+ggplot(df_auc, aes(modele, auc_estimate)) +
+    geom_point(size=4) +
+    geom_errorbar(aes(ymin=auc_low, ymax=auc_upp), width=0.2) + 
+    coord_flip() +
+    labs(x="", y="AUC value", title = "AUC values of prediction") +
+    scale_y_continuous(limits=c(0.5,1)) + 
+    theme_bw() + 
+    theme(legend.position = "none")  
+
+
+```
+\
+
+In our settings, we see that:
+
+* The "simple mean" model, that uses the mean risk in the train data to predict the risk in the test data, scores similarly to a random classifier, as expected.
+
+* The linear models (logistic regressions) score higher than the more advanced ones - no surprise here, the data-generation process is simple and linear. We note that, still, SVM, random forest and XGBoost hold their own.
+
+Okay, let's use our models to answer the question: who should we target in future marketing campaigns, who could be more likely to be a customer of the company?
+
+On figure \@ref(fig:first-prediction-model-predictions) we see the predicted risk of being a customer, depending on the two workable variables, age and liking of pancake, for each of the (interesting) model. 
+
+
+```{r first-prediction-model-predictions, fig.cap='Predicted risks of being a customer', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+data_age_pancake <- expand.grid(c(TRUE, FALSE), seq(18,80,by=0.1))
+colnames(data_age_pancake) <- c("liking_pancake", "age")
+data_age_pancake$app_usage <- mean(x_train$app_usage)
+data_age_pancake <- data_age_pancake[,which(colnames(data_age_pancake) %in%
+                                                colnames(x_train))]
+pred <- predict(sl_simplesplit, data_age_pancake, 
+                onlySL = FALSE)$library.predict
+pred <- cbind(pred, data_age_pancake)
+pred$ID <- paste0(pred$age, "_", pred$liking_pancake)
+pred_reshaped <- reshape(pred, direction='long', 
+        varying=c("SL.glm_All",
+                  "SL.glm.interaction_All",
+                  "SL.glmnet_All",
+                  "SL.svm_All",
+                  "SL.randomForest_All",
+                  "SL.xgboost_All"), 
+        timevar='modele',
+        times=c("SL.glm",
+                "SL.glm.interaction",
+                "SL.glmnet",
+                "SL.svm",
+                "SL.randomForest",
+                "SL.xgboost"),
+        v.names=c("Risk"),
+        idvar=c("ID"))
+
+pred_reshaped <- pred_reshaped %>%
+    mutate(modele = recode(modele, 
+                            "SL.glm"="Simple linear",
+                            "SL.glm.interaction"="Linear with interaction",
+                            "SL.glmnet"="Linear with LASSO",
+                            "SL.svm"="Support-vector machine",
+                            "SL.randomForest"="Random forest",
+                            "SL.xgboost"="XGboost"))
+pred_reshaped$modele <- factor(pred_reshaped$modele, 
+                        levels = names(learner_libraries)[-1])
+ggplot(pred_reshaped, aes(x = age, y = liking_pancake, fill = Risk)) +
+    geom_tile() +
+    # scale_fill_gradient( trans = 'log' ) +
+    facet_wrap(~ modele) +
+    labs(x="Age", y="Like pancake") +
+    # scale_fill_gradient2(low = "#67001f", mid="#f7f7f7", high = "#053061", midpoint = 0.4) +
+    theme_bw() 
+
+```
+
+
+\
+
+All of the model are in agreement: individuals who like pancakes have a higher risk of being customers, and **individuals with a younger age are also found to have with higer risk of being customers**, independently of if they like pancakes or not. For example, using the easily interpretable linear model, being 10 years younger increases the odd of being a customer by a factor of `r round(exp(-model_lm_simple$coefficients["age"]), 2)` (`r paste0(round(exp(-confint(model_lm_simple)["age",2:1]),2), collapse = "-")`). This result is in contradiction with the reality, with the way we generated our data. Indeed, age doesn't impact the risk of being a customer, only pancake liking does.
+
+As a consequence, when the company is designing its next marketing campaign, it risks targeting the young people. It means it will loose resources, focusing on a group that doesn't have higher probability of being their customer, and will do so, no matter how accurate the prediction model is.
+
+However, a Data Scientist aware of causal inference knows that this isn't a prediction task, but a causal one, that we are trying to identify levers of action. To do so, it is crucial to draw a DAG that summarizes how the data is collected (such as the previous DAG). Using D-separation rules (see @hernan2022causal or @pearlwhy), we see that including "web app usage" in any model will create a spurious link between age and being a loyal customer, as it is a collider of those two variables.
+
+
+```{r}
+
+train_obs <- sample(nrow(data_simulated), round(20*nrow(data_simulated)/100))
+x_train <- data_simulated[train_obs, -which(colnames(data_simulated) %in% c("client",
+                                                                            "app_usage"))]
+y_train <- as.numeric(data_simulated[train_obs, "client"])
+x_test <- data_simulated[-train_obs, -which(colnames(data_simulated) == c("client",
+                                                                            "app_usage"))]
+y_test <- as.numeric(data_simulated[-train_obs, "client"])
+
+
+```
+
+Re-performing the previous analyses, without including the "app usage" variable in the train data, leads to lower performances of the predictive model, as expected.  
+
+```{r, ref.label=c('first-prediction-model-estimation'), fig.cap='Performances to predict being a customer, from DAG', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+```
+
+\
+
+However, with those models, individuals who like pancakes have a higher risk of being customers, and only them. **Age doesn't impact risk of being customers** anymore (or non-significantly so, for the Random Forest & XGBoost).
+
+```{r, ref.label=c('first-prediction-model-predictions'), fig.cap='Predicted risks of being a customer, from DAG', fig.align='center', fig.pos='H', include=TRUE, warning=FALSE}
+
+```
+
+\
+
+As a consequence, the last models provide valuable insight for customer targeting, despite lower performances, thanks to causal inference theory.  
+
+\
+
+It could seem a too obvious example, because the problematic models include a variable that is posterior to the outcome variable (app usage comes after the likeliness of being a customer). However, it does exist more subtle examples of the importance of causal inference, versus prediction methods, when evaluating the effect of an action.
+
+\
+
+
+# References
+
+<div id="refs"></div>
+

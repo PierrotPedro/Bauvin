@@ -1,5 +1,5 @@
 ---
-bio: Data scientist currently working on health projects - prediction, modelling and inference
+bio: Data scientist currently working on health projects - prediction, modelling and causality
 education:
   courses:
   - course: PhD in Biostatistics
@@ -42,7 +42,7 @@ title: Pierre Bauvin
 
 I am an engineer in applied mathematics, and PhD in biostatistics, currently working within the SOPHIA European consortium (IMI public-private partnership) at the Lille Hospital, to tackle the issues of obesity and type 2 diabetes.
 
-I help answer public health questions and clinicians issues using machine learning, statistics and experts' inputs. I am particularly fond of prediction models to forecast patients' outcomes from large datasets, causal inference to estimate the impact of features for decision-making from observational data, and expert systems to model complex processes.
+I help answer public health questions and clinicians' issues using machine learning, statistics and expert inputs. I am particularly fond of prediction models to forecast patients' outcomes from large datasets, causal inference to estimate the impact of features for decision-making from observational data, and expert systems to model complex processes.
 
 Coding and calculus are actually small parts of my work; most of my energy goes to understanding clinicians needs, and communicate to experts about my methods and results. I am determined to carry out my projects to testing and operational phase. 
 
