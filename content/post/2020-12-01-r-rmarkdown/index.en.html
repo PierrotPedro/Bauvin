@@ -39,14 +39,14 @@ Bias(f)^2 + Var(f) + \sigma^2
 <h1>A first simple example</h1>
 <p>Once upon a time, there was a startup that sold pancakes.</p>
 <center>
-<img src="/post/2022-13-11-prediction-vs-causality/strawberry-pancakes-yum-flo-karp.jpg" />
+<img src="/post/2020-12-01-r-rmarkdown/strawberry-pancakes-yum-flo-karp.jpg" />
 <a href="https://fineartamerica.com/featured/strawberry-pancakes-yum-flo-karp.html">Strawberry Pancakes Yum, by Flo Karp, 2018</a>
 </center>
 <p><br />
 </p>
 <p>Blossoming, the young pancake start-up (“Pancup”) decided to use Data Science to help target individuals that were the more likely to become loyal customers. They designed a the pancake app (“Pancapp”). They launched a global campaign to gather data, reaching out social media and usual customers, for them to use the app. The goal of the Pancup is to identify who is more likely to be a loyal customer of their company, for example to target future marketing campaigns.</p>
 <p>We are using the following DAG to represent that process.</p>
-<p><img src="/post/2022-13-11-prediction-vs-causality/ImageDAG.png" /></p>
+<p><img src="/post/2020-12-01-r-rmarkdown/ImageDAG.png" /></p>
 <p>“App usage” represents how much the individuals are using the pancake app. In that simulation, there is no causal link between age and liking pancakes (everybody loves them!), but more importantly, <strong>age doesn’t impact the probability of being a loyal customer</strong>. Age only impacts app usage, as younger individuals are more easily reached on social networks.</p>
 <p>We are simulating the corresponding data with simple gaussian distributions (for age, errors, etc.) and sampling with the following probabilities:</p>
 <p><span class="math display">\[

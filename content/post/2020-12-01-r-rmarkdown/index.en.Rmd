@@ -56,7 +56,7 @@ As a result, trying to "explain" from a prediction model may lead to wrong concl
 Once upon a time, there was a startup that sold pancakes. 
 
 <center>
-![](/post/2022-13-11-prediction-vs-causality/strawberry-pancakes-yum-flo-karp.jpg)
+![](/post/2020-12-01-r-rmarkdown/strawberry-pancakes-yum-flo-karp.jpg)
 [Strawberry Pancakes Yum, by Flo Karp, 2018](https://fineartamerica.com/featured/strawberry-pancakes-yum-flo-karp.html)
 </center>
 
@@ -84,7 +84,7 @@ We are using the following DAG to represent that process.
 
 ```
 
-![](/post/2022-13-11-prediction-vs-causality/ImageDAG.png)
+![](/post/2020-12-01-r-rmarkdown/ImageDAG.png)
 
 
 "App usage" represents how much the individuals are using the pancake app. In that simulation, there is no causal link between age and liking pancakes (everybody loves them!), but more importantly, **age doesn't impact the probability of being a loyal customer**. Age only impacts app usage, as younger individuals are more easily reached on social networks.
