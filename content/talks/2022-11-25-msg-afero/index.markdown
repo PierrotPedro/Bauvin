@@ -19,6 +19,6 @@ projects: []
 
 [Slides](Afero_MSSG_Bauvin.pdf)
 
-I am very honoured to have received the Young Fellow Award at the Metabolic Surgery Study Group meeting in Paris in November 2022, for the presentation of our prediction model of weight loss after bariatric surgery.
+I am very honoured to have received the Young Fellow Award at the Metabolic Surgery Study Group meeting in Paris in November 2022, for the presentation of our prediction model of weight loss after bariatric surgery, developed by [Patrick Saux](https://sauxpa.github.io/) (INRIA team) and I.
 
 <blockquote class="twitter-tweet"><p lang="fr" dir="ltr">Félicitations aux deux lauréats des prix de communication orale AFERO-MSSG <br>- <a href="https://twitter.com/BauvinPierre?ref_src=twsrc%5Etfw">@BauvinPierre</a> - calculateurs de trajectoires de poids après chirurgie bariatrique<br>- <a href="https://twitter.com/EmilieSteinbach?ref_src=twsrc%5Etfw">@EmilieSteinbach</a> - microbiote jéjunal chez les patients candidats à la chirurgie métabolique<a href="https://twitter.com/ClementLab?ref_src=twsrc%5Etfw">@ClementLab</a> <a href="https://twitter.com/CHU_Lille?ref_src=twsrc%5Etfw">@CHU_Lille</a> <a href="https://t.co/TfMEhssUgx">pic.twitter.com/TfMEhssUgx</a></p>&mdash; AFERO (@AFERO_obesite) <a href="https://twitter.com/AFERO_obesite/status/1600844211783344128?ref_src=twsrc%5Etfw">December 8, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
