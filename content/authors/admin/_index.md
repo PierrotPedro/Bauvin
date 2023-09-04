@@ -1,5 +1,5 @@
 ---
-bio: Data scientist currently working on health projects - prediction, modelling and inference
+bio: Data scientist currently working on health projects - prediction, modelling and causality
 education:
   courses:
   - course: PhD in Biostatistics

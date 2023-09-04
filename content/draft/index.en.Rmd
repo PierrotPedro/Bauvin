@@ -1,0 +1,37 @@
+---
+title: "What is (not) a prediction model"
+author: "Pierre Bauvin"
+date: '2022-05-26'
+categories: ["Prediction"]
+tags: ["Prediction model", "Data science", "regression"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+# Other idea: comparison of mixed model and XGboost
+```
+
+# In brief
+
+Lots of model out there are selling themselves as "machine learning/AI individual prediction model". Many are not. A good prediction model ought to  
+
+
+```{r cars}
+summary(cars) 
+fit <- lm(dist ~ speed, data = cars)
+fit
+```
+
+# Including Plots
+
+You can also embed plots. See Figure \@ref(fig:pie) for example:
+
+```{r pie, fig.cap='A fancy pie chart.', tidy=FALSE}
+par(mar = c(0, 1, 0, 1))
+pie(
+  c(280, 60, 20),
+  c('Sky', 'Sunny side of pyramid', 'Shady side of pyramid'),
+  col = c('#0292D8', '#F7EA39', '#C4B632'),
+  init.angle = -50, border = NA
+)
+```

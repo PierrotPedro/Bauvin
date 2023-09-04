@@ -1,0 +1,86 @@
+---
+title: "Prediction versus causality [2/2]"
+author: "Pierre Bauvin"
+date: '2022-12-12'
+categories: ["Prediction", "Causality"]
+tags: ["Prediction model", "Data science", "Causality", "DAG"]
+subtitle: 'How prediction may not be what you need'
+summary: 'A very good prediction model may be useless, or even worse! With a more subtle example'
+header-includes:
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+bibliography: [../../../static/bib/My_bib.bib] 
+csl: [../../../static/bib/climate-dynamics.csl]
+output:
+  html_document:
+    code_folding: hide
+---
+
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+
+<div id="previous-post" class="section level1">
+<h1>Previous post</h1>
+<p>We saw previously that the inclusion of a variable that is the consequence of both a plausible cause and the outcome of interest (a collider) may lead to very good prediction models, but which may be more than useless! They can actually be misleading. Our example used a variable, “app usage” that is posterior to the others, pancakes-related variables, and may seem like a too obvious case for the sharp minds of my reader.</p>
+</div>
+<div id="a-more-subtle-example-the-m-bias" class="section level1">
+<h1>A more subtle example: the “M” bias</h1>
+<p>Let’s move together to another area, for the next case study: public health.</p>
+<center>
+<img src="/post/2022-13-11-prediction-vs-causality/healthcare-money.png" />
+<a href="https://floridapolitics.com/archives/460264-federal-approval-of-additional-1-1b-in-medicaid-funds-imminent-top-health-officials-say/"></a>
+</center>
+<p>Let’s imagine that the government is ready to put a lot of money to adress the type 2 diabetes issue, and more specifically to prevent the occurrence of type 2 diabetes. But what to act on? Main known (causal) drivers of type 2 diabetes are genetics (non-instrumental), age (non-instrumental) and obesity (already sufficiently adressed, according to the government). Lets find a new interesting, workable feature that leads to type 2 diabetes, that we can act on!</p>
+<p>In this fictional scenario, type 2 diabetes is the consequence of genes, age, BMI, and that’s all, so this new driver reseach is destined to find nothing. See figure for the transcription of these hypotheses.</p>
+<p><img src="/post/2022-13-11-prediction-vs-causality/ImageDAG2.png" /></p>
+<p>However, the government doesn’t know this, and has access to a lot of data. Thus, it hires a team of Data Scientist in this quest to find a new feature causing type 2 diabetes. In the government data set, from extensive interview of random individuals, there is data on whether one’s mother has diabetes, or not, as well as, why not: one’s number of opera visit during childhood. Both totally non-causal with respect to one’s diabetes status. However, both are <em>statistically</em> related to one’s diabetes status, as described by the next DAG: mother’s genes influence mother’s diabetes status, as well as one’s diabetes status (because it influences one’s gene), but we don’t have genetic data on the government database. Moreover, family income is causing both mother’s diabetes (because it impacts mother’s BMI) and number of opera visit during childhood, but we don’t have access to childhood income either.</p>
+<p><img src="/post/2022-13-11-prediction-vs-causality/ImageDAG3.png" /></p>
+<p>Similarly as in the previous post, data is generated following this last DAG, and we are going to perform predictions, to find if other features predict diabetes.</p>
+<p>Again, we build several models to predict the diabetes risk, using all available data: age, bmi, mother’s diabetes status and number of opera visits during childhood. On the contrary to the previous analysis, all variables precede the outcome. The results in terms of AUC are below:</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:second-prediction-model-estimation"></span>
+<img src="{{< blogdown/postref >}}index.en_files/figure-html/second-prediction-model-estimation-1.png" alt="Performances of diabetes prediction" width="672" />
+<p class="caption">
+Figure 1: Performances of diabetes prediction
+</p>
+</div>
+<p><br />
+</p>
+<p>Great, we have again excellent predicting models, such as the simple linear model. With it, we are able to predict diabetes with a discriminatory power (AUC) of 0.93, for the linear model!</p>
+<p>Let’s look at the relationship between the only operational variable (number of opera visits), and the predicted risk of diabetes, in the best model that we obtain, for a mean individual.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:second-prediction-model-predictions"></span>
+<img src="{{< blogdown/postref >}}index.en_files/figure-html/second-prediction-model-predictions-1.png" alt="Predicted risks of diabetes" width="672" />
+<p class="caption">
+Figure 2: Predicted risks of diabetes
+</p>
+</div>
+<p><br />
+</p>
+<p>Amazing; our awesome predicting model tells us that the diabetes risk decreases with the number of opera visits during childhood. From 35% diabetes risk for individuals who never had the chance to visit the opera during childhood, to less than 5% risk for lucky ones with more that 20 opera visits!</p>
+<p>The Data Science team reports to the government, that decides to found a national plan for Opera promotion for the youth, hoping to tackle the diabetes issue. Obviously, it isn’t going to be a success.</p>
+<p>Whereas a Data Scientist who is aware of causal inference, who draws DAGs, reads Hernàn and Pearl, will identify the “M-bias” from the previous DAG. By including the “mother diabetes status” in a model, according to the D-separation rules, a path is open between the number of opera visits (or any marker of family income during childhood) and diabetes, as long as we can’t include the “genes” variable (that are often not available).</p>
+<p>The answer here is thus to remove the “mother diabetes status” from the analysis, leading to less accurate prediction models (because we loose the indirect informations regarding genes status of our individuals) but more accurate <em>causal model</em>, exactly what we want in our settings. In such settings, the effects of age and BMI remains correctly estimated, and the effect of number of opera visits on diabetes falls to null (OR=1.05, 95%CI 0.97-1.13).</p>
+<p><br />
+</p>
+</div>
+<div id="perspectives-on-causal-inference-machine-learning" class="section level1">
+<h1>Perspectives on causal inference &amp; machine learning</h1>
+<p>Of course, causal inference doesn’t prevent the use of machine learning. It is mainly an injunction to reflect on the goal of the analysis, on the study design and the meaning of features.</p>
+<p>Actually, there are several causal methods using state-of-the-art machine learning algorithms to improve the accuracy of causal inference results. The Targeted Maximum Likelihood Estimation method (<span class="citation">Laan and Rubin (<a href="#ref-vanderLaanRubin" role="doc-biblioref">2006</a>)</span>) and the Double/Debiased Machine Learning framework (<span class="citation">Chernozhukov et al. (<a href="#ref-Chernozhukov" role="doc-biblioref">2018</a>)</span>) are two very good examples, aiming to estimate point treatment effects, using semi-parametric approach and machine learning algorithms of your choice to predict both of the nuisance parameters (the outcome, and the probability of treatment). Both algorithms are fascinating and are starting to see a widespread use, but their description will be in a future blogpost; see <span class="citation">Díaz (<a href="#ref-IvanDiaz" role="doc-biblioref">2019</a>)</span> for a good first introduction.</p>
+<p><br />
+</p>
+</div>
+<div id="references" class="section level1">
+<h1>References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Chernozhukov" class="csl-entry">
+Chernozhukov V, Chetverikov D, Demirer M, et al (2018) <span class="nocase">Double/debiased machine learning for treatment and structural parameters</span>. The Econometrics Journal 21:C1–C68. <a href="https://doi.org/10.1111/ectj.12097">https://doi.org/10.1111/ectj.12097</a>
+</div>
+<div id="ref-IvanDiaz" class="csl-entry">
+Díaz I (2019) <span class="nocase">Machine learning in the estimation of causal effects: targeted minimum loss-based estimation and double/debiased machine learning</span>. Biostatistics 21:353–358. <a href="https://doi.org/10.1093/biostatistics/kxz042">https://doi.org/10.1093/biostatistics/kxz042</a>
+</div>
+<div id="ref-vanderLaanRubin" class="csl-entry">
+Laan MJ van der, Rubin D (2006). The International Journal of Biostatistics 2: <a href="https://doi.org/doi:10.2202/1557-4679.1043">https://doi.org/doi:10.2202/1557-4679.1043</a>
+</div>
+</div>
+</div>
